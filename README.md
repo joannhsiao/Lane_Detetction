@@ -1,7 +1,8 @@
 # Lane_Detetction
 
 ## Usage
-```
+
+```python=
 from img_seg import *
 
 image = "test.jpg"
