@@ -1,3 +1,4 @@
+# Copyright (c) OpenMMLab. All rights reserved.
 from argparse import ArgumentParser
 
 import mmcv
@@ -11,8 +12,17 @@ import cv2
 import numpy as np
 import math
 import time
+    
+def cal_slope(x1, y1, x2, y2):
+    if x2 == x1:  # devide by zero
+        return None
+    else:
+        return ((y2 - y1) / (x2 - x1))
 
-def get_lines(lines):
+def intercept(x, y, slope):
+    return y - x * slope
+
+def cal_intersection(lines, img):
     coordinates = list(zip(lines[:, 0, 0], lines[:, 0, 1], lines[:, 0, 2], lines[:, 0, 3]))
 
     x1, y1, x2, y2 = coordinates[0]
@@ -27,13 +37,38 @@ def get_lines(lines):
             if coordinate != [x1, y1, x2, y2]:
                 x3, y3, x4, y4 = coordinate
 
-    # cv2.line(img, (x1, y1), (x2, y2), (0, 0, 255), 2)
-    # cv2.line(img, (x3, y3), (x4, y4), (0, 0, 255), 2)
+    cv2.line(img, (x1, y1), (x2, y2), (0, 0, 255), 2)
+    cv2.line(img, (x3, y3), (x4, y4), (0, 0, 255), 2)
 
-    right_line = [x1, y1, x2, y2]
-    left_line = [x3, y3, x4, y4]
+    # y = mx + b
+    slope_l = cal_slope(x1, y1, x2, y2)
+    slope_r = cal_slope(x3, y3, x4, y4)
+    b1 = intercept(x1, y1, slope_l)
+    b2 = intercept(x3, y3, slope_r)
 
-    return right_line, left_line
+    if slope_l is None:
+        if not slope_r is None:
+            x = x1
+            y = slope_r * x1 + b2
+        else:   # slope_r & slope_l are both none
+            if x1 == x3:
+                return int(x1), int(y1)
+            else:
+                return None, None
+    elif slope_r is None:
+        x = x3
+        y = slope_l * x3 + b1
+    else:
+        if slope_r == slope_l:
+            if b1 == b2:
+                return int(x1), int(y1)
+            else:
+                return None, None
+        else:
+            x = (b2 - b1) / (slope_l - slope_r)
+            y = slope_l * x + b1
+
+    return int(x), int(y)
 
 def weighted_img(img, initial_img, α=0.8, β=1., γ=0.):
     """
@@ -91,6 +126,9 @@ def pipline(model, img):
     max_line_gap = 25
     lines = cv2.HoughLinesP(edges, rho, theta, threshold, np.array([]), minLineLength=min_line_len, maxLineGap=max_line_gap)
     # line_img = np.zeros((edges.shape[0], edges.shape[1], 3), dtype=np.uint8)
+    # for line in lines:
+    #     for x1, y1, x2, y2 in line:
+    #         cv2.line(img, (x1, y1), (x2, y2), (255, 0, 0), 2)
 
     edges = cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
 
@@ -104,19 +142,25 @@ def pipline(model, img):
     #         top_point = coordinate
     # cv2.line(edges, origin, top_point, 255, 2)
 
-    images_output = weighted_img(edges, img, α=0.8, β=1., γ=0.)
+    test_images_output = weighted_img(edges, img, α=0.8, β=1., γ=0.)
 
-    return images_output, lines
+    return test_images_output, lines
 
 def find_highest(lines, center_x, center_y):
     coordinates = list(zip(lines[:, 0, 0], lines[:, 0, 1]))
 
     point = coordinates[0]
+    # distance = math.sqrt((point[0] - center_x)**2 + (point[1] - center_y)**2)
+
     for coordinate in coordinates:
+        # if coordinate[1] < point[1] and math.sqrt((coordinate[0] - center_x)**2 + (coordinate[1] - center_y)**2) > distance:
         if coordinate[1] < point[1]:
             point = coordinate
 
     return point[0], point[1]
+
+def Drawline(img, x1, y1, x2, y2, color=(255, 0, 0)):
+    cv2.line(img, (x1, y1), (x2, y2), color, 2)
 
 def cal_angle(point_x, point_y, center_x, center_y):
     if point_x is None or point_y is None:
@@ -134,9 +178,9 @@ def determine_direction(included_angle):
     else:
         return "straight"
 
-def img_seg(image):
+def main():
     parser = ArgumentParser()
-    parser.add_argument('--img', default="Data/video_images/30427_hd_Trim_Trim/130.jpg", help='Image file')
+    parser.add_argument('--img', default="../../Data/video_images/30427_hd_Trim_Trim/130.jpg", help='Image file')
     parser.add_argument('--config', default="configs/cityscapes/upernet_internimage_l_512x1024_160k_mapillary2cityscapes.py", help='Config file')
     parser.add_argument('--checkpoint', default="checkpoint_dir/seg/upernet_internimage_l_512x1024_160k_mapillary2cityscapes.pth", help='Checkpoint file')
     parser.add_argument('--out', type=str, default="demo", help='out dir')
@@ -155,20 +199,62 @@ def img_seg(image):
     else:
         model.CLASSES = get_classes(args.palette)
 
+    """ Test a single image """
+    # img = cv2.imread(args.img)
+    # output_img = pipline(model, img)
 
-    img = cv2.imread(image)
-    images_output, lines = pipline(model, img)
+    # # segment_image = inference_segmentor(model, img)
+    # # #show segment result
+    # # if hasattr(model, 'module'):
+    # #     model = model.module
+    # # seg_result = model.show_result(img, segment_image,
+    # #             palette=get_palette(args.palette),
+    # #             show=False, opacity=args.opacity)
 
-    right_line, left_line = get_lines(lines)
+    """ Test video """
+    fourcc = cv2.VideoWriter_fourcc(*'XVID')
+    out = cv2.VideoWriter('demo.avi', fourcc, 20.0, (1920, 1080))
+    cap = cv2.VideoCapture("../../Data/30427_hd_Trim_Trim.mp4")
 
-    center_x, center_y = int(img.shape[1] / 2), img.shape[0]
-    inter_x, inter_y = find_highest(lines, center_x, center_y)  # highest point
-    point_x, point_y = int(img.shape[1] / 2), int(img.shape[0] / 2)
+    i = 0
+    while cap.isOpened():
+        start_time = time.time()
+        ret, frame = cap.read()
+        if not ret:
+            break
 
-    angle1 = cal_angle(inter_x, inter_y, center_x, center_y)
-    angle2 = cal_angle(point_x, point_y, center_x, center_y)
-    if angle1 is not None:
-        included_angle = round(angle1 - angle2, 2)
-        direction = determine_direction(included_angle)
+        test_images_output, lines = pipline(model, frame)
+    
+        # inter_x, inter_y = cal_intersection(lines, test_images_output)
+        center_x, center_y = int(frame.shape[1] / 2), frame.shape[0]
+        inter_x, inter_y = find_highest(lines, center_x, center_y)  # highest point
+        point_x, point_y = int(frame.shape[1] / 2), int(frame.shape[0] / 2)
+        
+        Drawline(test_images_output, center_x, center_y, inter_x, inter_y, (255, 0, 0))
+        Drawline(test_images_output, center_x, center_y, point_x, point_y, (0, 255, 0))
 
-    return right_line, left_line, direction, [inter_x, inter_y]
+        angle1 = cal_angle(inter_x, inter_y, center_x, center_y)
+        angle2 = cal_angle(point_x, point_y, center_x, center_y)
+        if angle1 is not None:
+            included_angle = round(angle1 - angle2, 2)
+            direction = determine_direction(included_angle)
+            cv2.putText(test_images_output, direction, (50, 50), cv2.FONT_HERSHEY_DUPLEX, 2, (0, 0, 255), 2)
+            # cv2.putText(test_images_output, str(included_angle), (50, 50), cv2.FONT_HERSHEY_DUPLEX, 2, (0, 255, 255), 2)
+
+        cv2.namedWindow("demo", cv2.WINDOW_NORMAL)
+        cv2.imshow("demo", test_images_output)
+        cv2.waitKey(1)
+
+        out.write(test_images_output)
+        print("[{}], cost: {}".format(i, time.time() - start_time))
+
+        i += 1
+        if cv2.waitKey(1) == ord('q'):
+            break
+
+    cap.release()
+    out.release()
+    cv2.destroyAllWindows()
+
+if __name__ == '__main__':
+    main()

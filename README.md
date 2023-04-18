@@ -9,11 +9,10 @@ put it in ./checkpoint_dir/seg/
 ## Usage
 
 ```python
-from img_seg import *
+from image_demo import img_seg
 
 image = "test.jpg"
 right_line, left_line, direction, highest_point = img_seg(image)
-
 ```
     > right_line, left_line: both are a line, which type is [x1, y1, x2, y2]
     > 
