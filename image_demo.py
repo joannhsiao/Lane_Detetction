@@ -128,11 +128,11 @@ def cal_angle(point_x, point_y, center_x, center_y):
 
 def determine_direction(included_angle):
     if included_angle > 5:
-        return "right"
+        return "Right"
     elif included_angle < -5:
-        return "left"
+        return "Left"
     else:
-        return "straight"
+        return "Straight"
 
 def img_seg(image):
     parser = ArgumentParser()
