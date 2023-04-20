@@ -134,26 +134,11 @@ def determine_direction(included_angle):
     else:
         return "Straight"
 
-def img_seg(image):
-    parser = ArgumentParser()
-    parser.add_argument('--img', default="Data/video_images/30427_hd_Trim_Trim/130.jpg", help='Image file')
-    parser.add_argument('--config', default="configs/cityscapes/upernet_internimage_l_512x1024_160k_mapillary2cityscapes.py", help='Config file')
-    parser.add_argument('--checkpoint', default="checkpoint_dir/seg/upernet_internimage_l_512x1024_160k_mapillary2cityscapes.pth", help='Checkpoint file')
-    parser.add_argument('--out', type=str, default="demo", help='out dir')
-    parser.add_argument('--device', default='cuda:0', help='Device used for inference')
-    parser.add_argument('--palette', default='cityscapes', choices=['ade20k', 'cityscapes', 'cocostuff'], help='Color palette used for segmentation map')
-    parser.add_argument('--opacity', type=float, default=0.5, help='Opacity of painted segmentation map. In (0, 1] range.')
-    
-    args = parser.parse_args()
-
-    # build the model from a config file and a checkpoint file
-    model = init_segmentor(args.config, checkpoint=None, device=args.device)
-    checkpoint = load_checkpoint(model, args.checkpoint, map_location='cpu')
-
+def img_seg(image, model, checkpoint, palette):
     if 'CLASSES' in checkpoint.get('meta', {}):
         model.CLASSES = checkpoint['meta']['CLASSES']
     else:
-        model.CLASSES = get_classes(args.palette)
+        model.CLASSES = get_classes(palette)
 
 
     img = cv2.imread(image)
@@ -172,3 +157,16 @@ def img_seg(image):
         direction = determine_direction(included_angle)
 
     return right_line, left_line, direction, [inter_x, inter_y]
+
+
+def init():
+    config = "configs/cityscapes/upernet_internimage_l_512x1024_160k_mapillary2cityscapes.py"
+    checkpoint = "checkpoint_dir/seg/upernet_internimage_l_512x1024_160k_mapillary2cityscapes.pth"
+    device = 'cuda:0'
+    palette = 'cityscapes'
+
+    # build the model from a config file and a checkpoint file
+    model = init_segmentor(config, checkpoint=None, device=device)
+    checkpoint = load_checkpoint(model, checkpoint, map_location=device)
+
+    return model, checkpoint, palette
