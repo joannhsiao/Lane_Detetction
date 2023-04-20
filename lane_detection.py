@@ -10,7 +10,6 @@ from mmseg.core import get_classes
 import cv2
 import numpy as np
 import math
-import time
 
 def get_lines(lines):
     coordinates = list(zip(lines[:, 0, 0], lines[:, 0, 1], lines[:, 0, 2], lines[:, 0, 3]))
@@ -134,14 +133,12 @@ def determine_direction(included_angle):
     else:
         return "Straight"
 
-def img_seg(image, model, checkpoint, palette):
+def img_seg(img, model, checkpoint, palette):
     if 'CLASSES' in checkpoint.get('meta', {}):
         model.CLASSES = checkpoint['meta']['CLASSES']
     else:
         model.CLASSES = get_classes(palette)
 
-
-    img = cv2.imread(image)
     images_output, lines = pipline(model, img)
 
     right_line, left_line = get_lines(lines)
