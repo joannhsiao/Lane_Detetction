@@ -1,5 +1,5 @@
 import cv2
-from lane_detection import init, img_seg
+from lane_line_detect import init, img_seg
 
 model, checkpoint, palette = init()
 
