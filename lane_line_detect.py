@@ -21,7 +21,7 @@ def initialize(config = '../cfg/upernet_internimage_l.py',  checkpoint = '../wei
         model.CLASSES = get_classes(palette)
 
 def get_lines(lines, center_x, center_y):
-    coordinates = list(zip(lines[:, 0, 0], lines[:, 0, 1], lines[:, 0, 2], lines[:, 0, 3]))
+    coordinates = np.array(list(zip(lines[:, 0, 0], lines[:, 0, 1], lines[:, 0, 2], lines[:, 0, 3]))).tolist()
 
     x1, y1, x2, y2 = coordinates[0]
     x3, y3, x4, y4 = coordinates[-1]
