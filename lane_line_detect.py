@@ -11,6 +11,15 @@ import cv2
 import numpy as np
 import math
 
+def initialize(config = '../cfg/upernet_internimage_l.py',  checkpoint = '../weights/upernet_internimage_l.pth', device='cuda:0', palette = 'cityscapes'):
+    global model
+    model = init_segmentor(config, checkpoint=None, device=device)
+    checkpoint = load_checkpoint(model, checkpoint, map_location=device)
+    if 'CLASSES' in checkpoint.get('meta', {}):
+        model.CLASSES = checkpoint['meta']['CLASSES']
+    else:
+        model.CLASSES = get_classes(palette)
+
 def get_lines(lines, center_x, center_y):
     coordinates = list(zip(lines[:, 0, 0], lines[:, 0, 1], lines[:, 0, 2], lines[:, 0, 3]))
 
@@ -55,7 +64,7 @@ def weighted_img(img, initial_img, α=0.8, β=1., γ=0.):
     """
     return cv2.addWeighted(initial_img, α, img, β, γ)
 
-def pipline(model, img):
+def pipline(img):
     segment_image = inference_segmentor(model, img)
 
     # 把非0的全部統一為1
@@ -143,18 +152,15 @@ def determine_direction(included_angle):
 def cal_distance(x1, y1, x2, y2):
     return math.sqrt((x1 - x2)**2 + (y1 - y2)**2)
 
-def img_seg(img, model, checkpoint, palette):
-    if 'CLASSES' in checkpoint.get('meta', {}):
-        model.CLASSES = checkpoint['meta']['CLASSES']
-    else:
-        model.CLASSES = get_classes(palette)
-
-    images_output, lines = pipline(model, img)
+def img_seg(img):
+    global model, checkpoint
+    images_output, lines = pipline(img)
 
     center_x, center_y = int(img.shape[1] / 2), img.shape[0]
     right_line, left_line = get_lines(lines, center_x, center_y)
-    
+
     inter_x, inter_y = find_highest(lines, center_x, center_y)  # highest point
+    highest_point = np.array([inter_x, inter_y]).tolist()
     point_x, point_y = int(img.shape[1] / 2), int(img.shape[0] / 2)
 
     angle1 = cal_angle(inter_x, inter_y, center_x, center_y)
@@ -163,17 +169,4 @@ def img_seg(img, model, checkpoint, palette):
         included_angle = round(angle1 - angle2, 2)
         direction = determine_direction(included_angle)
 
-    return right_line, left_line, direction, [inter_x, inter_y]
-
-
-def init():
-    config = "configs/cityscapes/upernet_internimage_l_512x1024_160k_mapillary2cityscapes.py"
-    checkpoint = "checkpoint_dir/seg/upernet_internimage_l_512x1024_160k_mapillary2cityscapes.pth"
-    device = 'cuda:0'
-    palette = 'cityscapes'
-
-    # build the model from a config file and a checkpoint file
-    model = init_segmentor(config, checkpoint=None, device=device)
-    checkpoint = load_checkpoint(model, checkpoint, map_location=device)
-
-    return model, checkpoint, palette
+    return [right_line, left_line, direction, highest_point, included_angle]
