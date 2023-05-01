@@ -11,7 +11,7 @@ import cv2
 import numpy as np
 import math
 
-def get_lines(lines):
+def get_lines(lines, center_x, center_y):
     coordinates = list(zip(lines[:, 0, 0], lines[:, 0, 1], lines[:, 0, 2], lines[:, 0, 3]))
 
     x1, y1, x2, y2 = coordinates[0]
@@ -26,11 +26,18 @@ def get_lines(lines):
             if coordinate != [x1, y1, x2, y2]:
                 x3, y3, x4, y4 = coordinate
 
-    # cv2.line(img, (x1, y1), (x2, y2), (0, 0, 255), 2)
-    # cv2.line(img, (x3, y3), (x4, y4), (0, 0, 255), 2)
+    # cal points
+    if cal_distance(x1, y1, center_x, center_y) < cal_distance(x2, y2, center_x, center_y):
+        close_x, close_y, far_x, far_y = x1, y1, x2, y2
+    else:
+        close_x, close_y, far_x, far_y = x2, y2, x1, y1
+    left_line = [close_x, close_y, far_x, far_y]
 
-    right_line = [x1, y1, x2, y2]
-    left_line = [x3, y3, x4, y4]
+    if cal_distance(x3, y3, center_x, center_y) < cal_distance(x4, y4, center_x, center_y):
+        close_x, close_y, far_x, far_y = x3, y3, x4, y4
+    else:
+        close_x, close_y, far_x, far_y = x4, y4, x3, y3
+    right_line = [close_x, close_y, far_x, far_y]
 
     return right_line, left_line
 
@@ -133,6 +140,9 @@ def determine_direction(included_angle):
     else:
         return "Straight"
 
+def cal_distance(x1, y1, x2, y2):
+    return math.sqrt((x1 - x2)**2 + (y1 - y2)**2)
+
 def img_seg(img, model, checkpoint, palette):
     if 'CLASSES' in checkpoint.get('meta', {}):
         model.CLASSES = checkpoint['meta']['CLASSES']
@@ -141,9 +151,9 @@ def img_seg(img, model, checkpoint, palette):
 
     images_output, lines = pipline(model, img)
 
-    right_line, left_line = get_lines(lines)
-
     center_x, center_y = int(img.shape[1] / 2), img.shape[0]
+    right_line, left_line = get_lines(lines, center_x, center_y)
+    
     inter_x, inter_y = find_highest(lines, center_x, center_y)  # highest point
     point_x, point_y = int(img.shape[1] / 2), int(img.shape[0] / 2)
 
