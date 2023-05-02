@@ -35,14 +35,14 @@ def get_lines(lines, center_x, center_y):
             if coordinate != [x1, y1, x2, y2]:
                 x3, y3, x4, y4 = coordinate
 
-    # cal points
-    if cal_distance(x1, y1, center_x, center_y) < cal_distance(x2, y2, center_x, center_y):
+    # cal close and far points
+    if y1 > y2:
         close_x, close_y, far_x, far_y = x1, y1, x2, y2
     else:
-        close_x, close_y, far_x, far_y = x2, y2, x1, y1
+        close_x, close_y, far_x, far_y = x2, y2, x1, y2
     left_line = [close_x, close_y, far_x, far_y]
 
-    if cal_distance(x3, y3, center_x, center_y) < cal_distance(x4, y4, center_x, center_y):
+    if y3 > y4:
         close_x, close_y, far_x, far_y = x3, y3, x4, y4
     else:
         close_x, close_y, far_x, far_y = x4, y4, x3, y3
