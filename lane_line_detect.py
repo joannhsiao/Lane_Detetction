@@ -48,6 +48,10 @@ def get_lines(lines, center_x, center_y):
         close_x, close_y, far_x, far_y = x4, y4, x3, y3
     right_line = [close_x, close_y, far_x, far_y]
 
+    if right_line[0] < left_line[0]:
+        for i in range(len(right_line)):
+            right_line[i], left_line[i] = left_line[i], right_line[i]
+
     return right_line, left_line
 
 def weighted_img(img, initial_img, α=0.8, β=1., γ=0.):
